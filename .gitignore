@@ -1,0 +1,10 @@
+.DS_Store
+*__pycache__
+release/save/
+release/models/
+release/style_transfer/
+release/style_transfer.tar.gz
+docs/node_modules/
+docs/_book
+docs
+*.zip
