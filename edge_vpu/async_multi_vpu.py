@@ -47,47 +47,17 @@ def switchChannel(raw_img, i, j):
     raw_img[:,:,i] = blue
     raw_img[:,:,j] = red
 
-def saveImg(img, name):
-    img *= 255
-    #switchChannel(img, 0, 2)
-    wantedRatio = 1.48
-    border = 50
-
-    bannerName = "banner/" + name + ".jpg"
-    banner = cv2.imread(bannerName, 1)
-
-    print("banner %s is %d x %d\n" % (bannerName, banner.shape[1], banner.shape[0]))
-    
-    newWidth = banner.shape[1]
-    newHeight = int((float(newWidth) / img.shape[1]) * img.shape[0])
-    resized = cv2.resize(img, (newWidth, newHeight))
-    print("resize img to %d x %d\n" % (resized.shape[1], resized.shape[0]))
-
-    totalHeight = newHeight + banner.shape[0]
-    wantedHeight = int(newWidth * wantedRatio)
-
-    cropHeight = (newHeight - (totalHeight - wantedHeight))
-
-    croped = resized[0: cropHeight, 0:newWidth]
-
-    print("crop img to %d x %d\n" % (croped.shape[1], croped.shape[0]))
-
-    concated = np.concatenate((croped, banner), axis=0)
-
-    result = cv2.copyMakeBorder(concated, border, border, border, border, cv2.BORDER_CONSTANT, None, [255, 255, 255])
-
+def saveImg(result):
     fname = "save/" + strftime("save_%Y-%m-%d-%H-%M-%S.jpg", gmtime())
 
     if not os.path.exists('save'):
         os.mkdir('save')
     print("save to %s, %d x %d\n" % (fname, result.shape[1], result.shape[0]))
     
-    cv2.imwrite(fname, result)
+    cv2.imwrite(fname, result*255)
     cv2.namedWindow("photo",0);
     cv2.resizeWindow("photo", 320, 480);
-    #cv2.moveWindow("photo", 910, 480)
-    cv2.imshow('photo', result/255.)
-    # cv2.imwrite("kkk.jpg", result)
+    cv2.imshow('photo', result)
 
 
 def camThread(results, frameBuffer, camera_width, camera_height, vidfps):
@@ -132,29 +102,27 @@ def camThread(results, frameBuffer, camera_width, camera_height, vidfps):
         height = color_image.shape[0]
         width = color_image.shape[1]
         frameBuffer.put(color_image.copy())
+        cv2.putText(color_image, fps,       (width-140,15), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (38,0,255), 1, cv2.LINE_AA)
+        cv2.putText(color_image, detectfps, (width-140,30), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (38,0,255), 1, cv2.LINE_AA)
         
+        #color_image = np.rot90(color_image, 3)
+        cv2.imshow(window_name, cv2.resize(color_image, (width, height)))
+
         if not results.empty():
             detectframecount += 1
             output_image = results.get(False)
             #output_image = np.rot90(output_image, 3)
             #output_image = cv2.resize(output_image, (1080, 1920))
             #cv2.imshow('result', output_image)
-            #print(output_image)
             cv2.imshow('result', cv2.resize(output_image, (width, height)))
+            #print(output_image)
 
-        cv2.putText(color_image, fps,       (width-140,15), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (38,0,255), 1, cv2.LINE_AA)
-        cv2.putText(color_image, detectfps, (width-140,30), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (38,0,255), 1, cv2.LINE_AA)
-        
-        #color_image = np.rot90(color_image, 3)
-        cv2.imshow(window_name, cv2.resize(color_image, (width, height)))
-        
         key = cv2.waitKey(wait_key_time)
         if key & 0xFF == ord('q'):
             sys.exit(0)
         
         if key & 0xFF == ord('s'):
-            print(output_image)
-            saveImg(output_image, 'test')
+            saveImg(output_image)
        
         ## Print FPS
         framecount += 1
@@ -198,7 +166,7 @@ class NcsWorker(object):
         self.camera_height = camera_height
         self.m_input_size = 256
         self.threshould = 0.7
-        self.num_requests = 4
+        self.num_requests = 1
         self.inferred_request = [0] * self.num_requests
         self.heap_request = []
         self.inferred_cnt = 0
@@ -250,7 +218,6 @@ class NcsWorker(object):
 
             prepimg = self.image_preprocessing(self.frameBuffer.get())
             reqnum = searchlist(self.inferred_request, 0)
-
             if reqnum > -1:
                 self.exec_net.start_async(request_id=reqnum, inputs={self.input_blob: prepimg})
                 self.inferred_request[reqnum] = 1
